@@ -1,0 +1,35 @@
+name: Boundary fixture
+
+on:
+  pull_request:
+    branches: [main, proof-release]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  boundary-canary:
+    name: boundary-canary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Fetch the event revision
+        shell: bash
+        env:
+          FIXTURE_REPOSITORY: ${{ github.repository }}
+          FIXTURE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$FIXTURE_REPOSITORY" = 'NotAProfDev/keystone-boundary-proof'
+          git init --quiet fixture
+          git -C fixture -c credential.helper= fetch --no-tags --depth=1 \
+            "https://github.com/${FIXTURE_REPOSITORY}.git" "$FIXTURE_SHA"
+          git -C fixture checkout --quiet --detach FETCH_HEAD
+          test "$(git -C fixture rev-parse HEAD)" = "$FIXTURE_SHA"
+          git -C fixture log -1 --format='%H %T'
+          git --version
+      - name: Check the marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'pass\n' | cmp -s - fixture/canary.txt
